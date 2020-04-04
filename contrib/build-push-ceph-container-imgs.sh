@@ -41,7 +41,7 @@ TAGGED_HEAD=false # does HEAD is on a tag ?
 DEVEL=${DEVEL:=false}
 if [ -z "$CEPH_RELEASES" ]; then
   # NEVER change 'master' position in the array, this will break the 'latest' tag
-  CEPH_RELEASES=(master luminous mimic nautilus)
+  CEPH_RELEASES=(master luminous mimic nautilus octopus)
 fi
 
 HOST_ARCH=$(uname -m)
@@ -55,7 +55,7 @@ CN_RELEASE="v2.3.1"
 
 function _centos_release {
   local release=$1
-  if [[ "${release}" =~ master|^wip* ]]; then
+  if [[ "${release}" =~ master|octopus|^wip* ]]; then
     echo 8
   else
     echo 7
@@ -82,6 +82,17 @@ function install_docker {
 }
 
 function install_podman {
+  # https://github.com/containers/libpod/issues/5306
+  # https://podman.io/getting-started/installation.html
+  if ${CI_CONTAINER}; then
+    sudo dnf -y module disable container-tools
+    sudo dnf -y install 'dnf-command(copr)'
+    sudo dnf -y copr enable rhcontainerbot/container-selinux
+    sudo curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable.repo https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/CentOS_8/devel:kubic:libcontainers:stable.repo
+    # https://tracker.ceph.com/issues/44242
+    # We used to provide fuse-overlayfs-0.7.6-2.0 in lab-extras but a newer version is available in the kubic repo so we'll install/update from there
+    sudo dnf install -y fuse-overlayfs
+  fi
   sudo dnf install -y podman podman-docker
 }
 
@@ -175,6 +186,8 @@ function create_head_or_point_release {
       CEPH_RELEASES=(luminous mimic)
     elif [ "${CONTAINER_BRANCH}" == "stable-4.0" ]; then
       CEPH_RELEASES=(nautilus)
+    elif [ "${CONTAINER_BRANCH}" == "stable-5.0" ]; then
+      CEPH_RELEASES=(octopus)
     fi
   else
     set -e
